@@ -1,0 +1,110 @@
+---
+title: "CS 230"
+author: "Yanqiu Wang and Yutong Sun"
+date: "5/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+temperature = read.csv("temperature.csv")
+SFO_temp = temperature[c("datetime","San.Francisco")]
+colnames(SFO_temp)[2] <- paste0("Temperature")
+
+wind_speed = read.csv("wind_speed.csv")
+SFO_wind_speed = wind_speed[c("San.Francisco")]
+colnames(SFO_wind_speed)[1] <- paste0("Wind_Speed")
+
+wind_direction = read.csv("wind_direction.csv")
+SFO_wind_dir = wind_direction[c("San.Francisco")]
+colnames(SFO_wind_dir)[1] <- paste0("Wind_Direction")
+
+humidity = read.csv("humidity.csv")
+SFO_humidity = humidity[c("San.Francisco")]
+colnames(SFO_humidity)[1] <- paste0("Humidity")
+
+weather_des = read.csv("weather_description.csv")
+SFO_des = weather_des[c("San.Francisco")]
+colnames(SFO_des)[1] <- paste0("Weather_Description")
+
+pressure = read.csv("pressure.csv")
+SFO_pressure = pressure[c("San.Francisco")]
+colnames(SFO_pressure)[1] <- paste0("Pressure")
+
+```
+
+```{r}
+SFO_weather = cbind(SFO_temp, SFO_wind_speed)
+SFO_weather = cbind(SFO_weather, SFO_wind_dir)
+SFO_weather = cbind(SFO_weather, SFO_humidity)
+SFO_weather = cbind(SFO_weather, SFO_des)
+SFO_weather = cbind(SFO_weather, SFO_pressure)
+```
+
+```{r}
+#Extract 2017 Jan data
+SFO_weather_2017J = SFO_weather[37261:38004,]
+```
+
+```{r}
+#Extract SFO flight data
+all_flight = as.data.frame(read.csv("flight.csv"))
+SFO_flight = subset(all_flight, all_flight$ORIGIN == "SFO")
+```
+
+```{r}
+#Merge two datasets
+nameVector <- c("Temperature", "Wind_Speed", "Wind_Direction", "Humidity", "Weather_description", "Pressure")
+
+SFO_flight[,nameVector] <- NA
+
+for (i in seq(1, nrow(SFO_flight), by = 1)) {
+  flight_entry = SFO_flight[i,]
+  time_key = flight_entry$DAY_OF_MONTH * 24 + round(flight_entry$CRS_DEP_TIME / 100, 0) - 23
+  weather_entry = SFO_weather_2017J[time_key,2:7]
+  SFO_flight[i, 33:38] <- weather_entry
+}
+```
+
+```{r}
+#Export
+write.csv(SFO_flight, file = "Flight_Data.csv")
+```
+
+```{r}
+#Sample Training/Dev/Test sets
+baseline <- read.csv("Flight_Data_Baseline.csv")
+
+random.10626.rows <- sample.int(13283, 10626, replace = FALSE)
+training.df = as.data.frame(baseline[random.10626.rows,])
+
+notChosen = vector()
+for (i in 1:13283) {
+  if (!(i %in% random.10626.rows)) {
+    notChosen = append(notChosen, i)
+  }
+}
+not.training.df = as.data.frame(baseline[notChosen,])
+
+random.1328.rows <- sample.int(2657, 1328, replace = FALSE)
+dev.df = as.data.frame(not.training.df[random.1328.rows,])
+notChosen = vector()
+for (i in 1:2657) {
+  if (!(i %in% random.1328.rows)) {
+    notChosen = append(notChosen, i)
+  }
+}
+test.df = as.data.frame(not.training.df[notChosen,])
+
+#delete NA ones
+training.df <- na.omit(training.df)
+dev.df <- na.omit(dev.df)
+test.df <- na.omit(test.df)
+
+write.csv(training.df, file = "training.csv")
+write.csv(dev.df, file = "dev.csv")
+write.csv(test.df, file = "test.csv")
+```
